@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { trpc } from '@/lib/trpc';
 
 // Configure notification behavior
@@ -25,8 +26,12 @@ export function useNotifications() {
       console.log('Notifications not supported on web');
       return;
     }
+
+    if (Constants.appOwnership === 'expo') {
+      console.warn('Push notifications are not supported in Expo Go on SDK 53. Use a development build.');
+      return;
+    }
     
-    // Request permissions and register for push notifications
     registerForPushNotificationsAsync().then(token => {
       if (token) {
         registerTokenMutation.mutate({ token });
@@ -69,6 +74,10 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === 'web') {
     return null;
   }
+
+  if (Constants.appOwnership === 'expo') {
+    return null;
+  }
   
   let token: string | null = null;
   
@@ -90,16 +99,21 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     console.log('Push token:', token);
   } catch (error) {
     console.error('Error getting push token:', error);
+    return null;
   }
   
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('website_alerts', {
-      name: 'Website Alerts',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-      sound: 'default',
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('website_alerts', {
+        name: 'Website Alerts',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'default',
+      });
+    } catch (e) {
+      console.log('Failed to set Android notification channel', e);
+    }
   }
   
   return token;
