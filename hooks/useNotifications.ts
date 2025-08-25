@@ -4,7 +4,6 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { trpc } from '@/lib/trpc';
 
-// Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -22,38 +21,36 @@ export function useNotifications() {
   const registerTokenMutation = trpc.notifications.registerToken.useMutation();
   
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      console.log('Notifications not supported on web');
-      return;
-    }
+    const setup = async () => {
+      if (Platform.OS === 'web') {
+        console.log('Notifications not supported on web');
+        return;
+      }
 
-    if (Constants.appOwnership === 'expo') {
-      console.warn('Push notifications are not supported in Expo Go on SDK 53. Use a development build.');
-      return;
-    }
-    
-    registerForPushNotificationsAsync().then(token => {
+      if (Constants.appOwnership === 'expo') {
+        console.warn('Push notifications are not supported in Expo Go on SDK 53. Use a development build.');
+        return;
+      }
+      
+      const token = await registerForPushNotificationsAsync();
       if (token) {
         registerTokenMutation.mutate({ token });
       }
-    });
 
-    // Listen for notifications received while app is running
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-    });
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification received:', notification);
+      });
 
-    // Listen for user interactions with notifications
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-      
-      const data = response.notification.request.content.data;
-      if (data?.type === 'downtime_alert' && data?.websiteId) {
-        // Navigate to website details
-        // This would need to be implemented with navigation
-        console.log('Navigate to website:', data.websiteId);
-      }
-    });
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notification response:', response);
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        if ((data?.type as string | undefined) === 'downtime_alert' && typeof data?.websiteId === 'string') {
+          console.log('Navigate to website:', String(data.websiteId));
+        }
+      });
+    };
+
+    setup();
 
     return () => {
       if (notificationListener.current) {
