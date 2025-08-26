@@ -1,8 +1,5 @@
 import { z } from "zod";
 import { publicProcedure } from "../../create-context";
-import * as fs from 'fs';
-import * as path from 'path';
-
 interface Website {
   id: string;
   name: string;
@@ -14,39 +11,38 @@ interface Website {
   createdAt: Date;
 }
 
-// File-based storage for persistence
-const STORAGE_FILE = path.join(process.cwd(), 'websites.json');
+// In-memory storage (works in serverless environments)
+let websites: Website[] = [];
 
-function loadWebsites(): Website[] {
-  try {
-    if (fs.existsSync(STORAGE_FILE)) {
-      const data = fs.readFileSync(STORAGE_FILE, 'utf8');
-      const parsed = JSON.parse(data);
-      return parsed.map((w: any) => ({
-        ...w,
-        lastChecked: new Date(w.lastChecked),
-        createdAt: new Date(w.createdAt)
-      }));
+// Initialize with some demo data
+if (websites.length === 0) {
+  websites = [
+    {
+      id: 'demo-1',
+      name: 'Google',
+      url: 'https://google.com',
+      status: 'online' as const,
+      uptime: 100,
+      downtime: 0,
+      lastChecked: new Date(),
+      createdAt: new Date(Date.now() - 86400000) // 1 day ago
+    },
+    {
+      id: 'demo-2',
+      name: 'GitHub',
+      url: 'https://github.com',
+      status: 'online' as const,
+      uptime: 95,
+      downtime: 5,
+      lastChecked: new Date(),
+      createdAt: new Date(Date.now() - 172800000) // 2 days ago
     }
-  } catch (error) {
-    console.error('Error loading websites:', error);
-  }
-  return [];
+  ];
 }
 
-function saveWebsites(websites: Website[]): void {
-  try {
-    fs.writeFileSync(STORAGE_FILE, JSON.stringify(websites, null, 2));
-  } catch (error) {
-    console.error('Error saving websites:', error);
-  }
-}
+console.log(`Initialized with ${websites.length} websites`);
 
-// Load websites on startup
-let websites: Website[] = loadWebsites();
-console.log(`Loaded ${websites.length} websites from storage`);
-
-export { websites, saveWebsites, loadWebsites };
+export { websites };
 
 export default publicProcedure
   .input(z.object({ 
@@ -67,7 +63,6 @@ export default publicProcedure
     };
     
     websites.push(website);
-    saveWebsites(websites);
     console.log(`Added website: ${input.name} (${input.url}) - Total websites: ${websites.length}`);
     
     return website;

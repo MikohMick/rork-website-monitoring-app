@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { WebsiteMonitorProvider } from "@/hooks/useWebsiteMonitorBackend";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useNotifications } from "@/hooks/useNotifications";
+import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,13 +36,15 @@ export default function RootLayout() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <WebsiteMonitorProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </WebsiteMonitorProvider>
-          </ThemeProvider>
+          <trpc.Provider client={trpcClient} queryClient={queryClient}>
+            <ThemeProvider>
+              <WebsiteMonitorProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </WebsiteMonitorProvider>
+            </ThemeProvider>
+          </trpc.Provider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

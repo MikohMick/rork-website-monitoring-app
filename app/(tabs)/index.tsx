@@ -48,7 +48,7 @@ export default function HomeScreen() {
     );
   }
 
-  const { websites, isLoading, checkAllWebsites, addMultipleWebsites, refreshing } = websiteMonitor;
+  const { websites, isLoading, checkAllWebsites, addMultipleWebsites, refreshing, isOffline, retryConnection } = websiteMonitor;
 
   // Check if there's a connection error
   const hasConnectionError = websites.length === 0 && !isLoading && !refreshing;
@@ -161,11 +161,28 @@ export default function HomeScreen() {
         }} 
       />
       {/* Connection Status Indicator */}
-      {hasConnectionError && (
+      {isOffline && (
         <View style={[styles.connectionStatus, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
           <WifiOff color={colors.error} size={16} />
           <Text style={[styles.connectionText, { color: colors.error }]}>
-            Backend connection failed. Check if server is running.
+            Offline Mode - Using cached data
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.error }]}
+            onPress={retryConnection}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.background }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {!isOffline && websites.length > 0 && (
+        <View style={[styles.connectionStatus, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
+          <Wifi color={colors.success} size={16} />
+          <Text style={[styles.connectionText, { color: colors.success }]}>
+            Connected to backend
           </Text>
         </View>
       )}
@@ -368,5 +385,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     flex: 1,
+  },
+  retryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
