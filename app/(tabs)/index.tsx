@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, RefreshCw, Bell, WifiOff, Wifi } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
-import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorBackend';
+import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
 import WebsiteCard from '@/components/WebsiteCard';
 import { Stack, router } from 'expo-router';
 
@@ -48,25 +48,12 @@ export default function HomeScreen() {
     );
   }
 
-  const { websites, isLoading, checkAllWebsites, addMultipleWebsites, refreshing, isOffline, retryConnection } = websiteMonitor;
+  const { websites, isLoading, checkAllWebsites, refreshing, isOffline, retryConnection } = websiteMonitor;
 
   // Check if there's a connection error
   const hasConnectionError = websites.length === 0 && !isLoading && !refreshing;
   
-  // Test backend connection on mount
-  useEffect(() => {
-    const testConnection = async () => {
-      try {
-        console.log('Testing backend connection...');
-        const response = await fetch('https://workspace-n6g0f7vla-michaels-projects-c8a13e6f.vercel.app/api');
-        const data = await response.json();
-        console.log('Backend connection test result:', data);
-      } catch (error) {
-        console.error('Backend connection test failed:', error);
-      }
-    };
-    testConnection();
-  }, []);
+
 
   const filteredWebsites = useMemo(() => {
     if (!searchQuery.trim()) return websites;
@@ -109,7 +96,9 @@ export default function HomeScreen() {
     ];
     
     try {
-      await addMultipleWebsites(testWebsites);
+      for (const website of testWebsites) {
+        await websiteMonitor.addWebsite(website.name, website.url);
+      }
       console.log('Test websites added successfully');
     } catch (error) {
       console.log('Error adding test websites:', error);
@@ -182,7 +171,7 @@ export default function HomeScreen() {
         <View style={[styles.connectionStatus, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
           <Wifi color={colors.success} size={16} />
           <Text style={[styles.connectionText, { color: colors.success }]}>
-            Connected to backend
+            Connected to Supabase
           </Text>
         </View>
       )}

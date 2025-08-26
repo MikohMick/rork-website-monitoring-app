@@ -15,7 +15,7 @@ import { Plus, Trash2, Save } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
-import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorBackend';
+import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
 
 interface WebsiteInput {
   id: string;
@@ -44,7 +44,7 @@ export default function AddScreen() {
     );
   }
 
-  const { addMultipleWebsites } = websiteMonitor;
+  const { addWebsite } = websiteMonitor;
 
   const addWebsiteInput = () => {
     if (Platform.OS !== 'web') {
@@ -113,7 +113,9 @@ export default function AddScreen() {
         url: site.url.startsWith('http') ? site.url.trim() : `https://${site.url.trim()}`,
       }));
       
-      await addMultipleWebsites(websiteData);
+      for (const website of websiteData) {
+        await addWebsite(website.name, website.url);
+      }
 
       setWebsites([{ id: '1', name: '', url: '' }]);
       

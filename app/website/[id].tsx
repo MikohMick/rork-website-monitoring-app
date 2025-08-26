@@ -14,7 +14,7 @@ import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { ExternalLink, Trash2, RefreshCw, Clock, TrendingUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
-import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorBackend';
+import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
 import StatusIndicator from '@/components/StatusIndicator';
 
 export default function WebsiteDetailScreen() {

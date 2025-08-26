@@ -1,18 +1,14 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "@/hooks/useTheme";
-import { WebsiteMonitorProvider } from "@/hooks/useWebsiteMonitorBackend";
+import { WebsiteMonitorProvider } from "@/hooks/useWebsiteMonitorSupabase";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useNotifications } from "@/hooks/useNotifications";
-import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   useNotifications(); // Initialize notifications
@@ -35,17 +31,13 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <trpc.Provider client={trpcClient} queryClient={queryClient}>
-            <ThemeProvider>
-              <WebsiteMonitorProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </WebsiteMonitorProvider>
-            </ThemeProvider>
-          </trpc.Provider>
-        </QueryClientProvider>
+        <ThemeProvider>
+          <WebsiteMonitorProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </WebsiteMonitorProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
