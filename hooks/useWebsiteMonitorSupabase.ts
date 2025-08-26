@@ -11,7 +11,6 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
   const [websites, setWebsites] = useState<Website[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [hasFetchedOnce, setHasFetchedOnce] = useState<boolean>(false);
 
   const loadFromStorage = useCallback(async () => {
     try {
@@ -63,14 +62,11 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
       await loadFromStorage();
     } finally {
       setIsLoading(false);
-      setHasFetchedOnce(true);
     }
   }, [saveToStorage, loadFromStorage]);
 
   useEffect(() => {
     const initialize = async () => {
-      console.log('Initializing WebsiteMonitor...');
-      // Load cached for potential offline fallback, but UI will wait for remote fetch
       await loadFromStorage();
       await fetchAll(true);
     };
@@ -275,7 +271,6 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
     isLoading,
     refreshing,
     isOffline,
-    hasFetchedOnce,
     checkingIds: new Set<string>(),
     addWebsite,
     removeWebsite,
@@ -289,7 +284,6 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
     isLoading,
     refreshing,
     isOffline,
-    hasFetchedOnce,
     addWebsite,
     removeWebsite,
     checkWebsiteStatus,

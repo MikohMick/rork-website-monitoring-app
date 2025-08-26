@@ -28,7 +28,6 @@ export default function WebsiteDetailScreen() {
   const checkWebsiteStatus = websiteMonitor?.checkWebsiteStatus;
   const getWebsiteStats = websiteMonitor?.getWebsiteStats;
   const checkingIds = websiteMonitor?.checkingIds || new Set();
-  const hasFetchedOnce = websiteMonitor?.hasFetchedOnce ?? false;
   
   const website = websites.find(site => site.id === id);
   const isChecking = checkingIds.has(id || '');
@@ -55,10 +54,10 @@ export default function WebsiteDetailScreen() {
   if (!website) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: hasFetchedOnce ? 'Website Not Found' : 'Loading...' }} />
+        <Stack.Screen options={{ title: 'Website Not Found' }} />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.text }]}>
-            {hasFetchedOnce ? 'Website not found' : 'Loading website…'}
+            Website not found
           </Text>
         </View>
       </SafeAreaView>
