@@ -1,37 +1,39 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+import type { Subscription } from 'expo-notifications';
 
 export function useNotifications() {
-  const notificationListener = useRef<Notifications.Subscription | null>(null);
-  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationListener = useRef<Subscription | null>(null);
+  const responseListener = useRef<Subscription | null>(null);
 
   useEffect(() => {
     const setup = async () => {
       if (Platform.OS === 'web') {
-        console.log('Notifications not supported on web');
+        console.log('Notifications disabled on web');
         return;
       }
 
       if (Constants.appOwnership === 'expo') {
-        console.warn('Push notifications are not supported in Expo Go on SDK 53. Use a development build.');
+        console.log('Skipping notifications in Expo Go (SDK 53).');
         return;
       }
-      
-      const token = await registerForPushNotificationsAsync();
+
+      const Notifications = await import('expo-notifications');
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+
+      const token = await registerForPushNotificationsAsync(Notifications);
       if (token) {
-        console.log('Push token ready (REST backend must store it server-side):', token);
+        console.log('Push token ready:', token);
       }
 
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -50,12 +52,17 @@ export function useNotifications() {
     setup();
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      const cleanup = async () => {
+        if (Platform.OS === 'web' || Constants.appOwnership === 'expo') return;
+        const Notifications = await import('expo-notifications');
+        if (notificationListener.current) {
+          Notifications.removeNotificationSubscription(notificationListener.current);
+        }
+        if (responseListener.current) {
+          Notifications.removeNotificationSubscription(responseListener.current);
+        }
+      };
+      void cleanup();
     };
   }, []);
 
@@ -64,7 +71,7 @@ export function useNotifications() {
   };
 }
 
-async function registerForPushNotificationsAsync(): Promise<string | null> {
+async function registerForPushNotificationsAsync(Notifications: typeof import('expo-notifications')): Promise<string | null> {
   if (Platform.OS === 'web') {
     return null;
   }
@@ -72,22 +79,22 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Constants.appOwnership === 'expo') {
     return null;
   }
-  
+
   let token: string | null = null;
-  
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
-  
+
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
-  
+
   if (finalStatus !== 'granted') {
     console.log('Failed to get push token for push notification!');
     return null;
   }
-  
+
   try {
     token = (await Notifications.getExpoPushTokenAsync()).data;
     console.log('Push token:', token);
@@ -95,7 +102,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     console.error('Error getting push token:', error);
     return null;
   }
-  
+
   if (Platform.OS === 'android') {
     try {
       await Notifications.setNotificationChannelAsync('website_alerts', {
@@ -109,6 +116,6 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
       console.log('Failed to set Android notification channel', e);
     }
   }
-  
+
   return token;
 }
