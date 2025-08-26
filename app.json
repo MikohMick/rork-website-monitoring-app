@@ -24,9 +24,7 @@
       },
       "package": "app.rork.website-monitoring-app",
       "permissions": [
-        "android.permission.VIBRATE",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -37,12 +35,6 @@
         "expo-router",
         {
           "origin": "https://rork.com/"
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "enableBackgroundRemoteNotifications": false
         }
       ]
     ],
