@@ -17,9 +17,8 @@ app.use("*", cors({
 }));
 
 app.use(
-  "/trpc/*",
+  "/api/trpc/*",
   trpcServer({
-    endpoint: "/api/trpc",
     router: appRouter,
     createContext,
   })
@@ -31,6 +30,19 @@ app.get("/", (c) => {
     message: "Website Monitoring API is running",
     timestamp: new Date().toISOString(),
     version: "1.0.0"
+  });
+});
+
+app.get("/api", (c) => {
+  return c.json({ 
+    status: "ok", 
+    message: "Website Monitoring API is running",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    endpoints: {
+      trpc: "/api/trpc",
+      health: "/api"
+    }
   });
 });
 

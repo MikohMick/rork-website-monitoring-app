@@ -2,39 +2,20 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
-import { Platform } from "react-native";
+
 
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     console.log('Using Rork backend URL:', process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
-    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL.replace(/\/$/, '');
   }
 
-  try {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        console.log('Using same-origin for web:', window.location.origin);
-        return window.location.origin;
-      }
-    }
-  } catch (e) {
-    console.log('Platform/window detection failed', e);
-  }
-
-  if (process.env.EXPO_PUBLIC_DEV_API_URL) {
-    console.log('Using dev API URL:', process.env.EXPO_PUBLIC_DEV_API_URL);
-    return process.env.EXPO_PUBLIC_DEV_API_URL;
-  }
-
-  if (__DEV__) {
-    console.log('Using default localhost URL http://localhost:3000');
-    return "http://localhost:3000";
-  }
-
-  console.warn('No base URL configured, defaulting to relative');
-  return "";
+  // Fallback to the deployed backend
+  const fallbackUrl = 'https://workspace-n6g0f7vla-michaels-projects-c8a13e6f.vercel.app';
+  console.log('Using fallback backend URL:', fallbackUrl);
+  return fallbackUrl;
 };
 
 const baseUrl = getBaseUrl();

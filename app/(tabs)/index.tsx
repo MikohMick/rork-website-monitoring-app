@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -52,6 +52,21 @@ export default function HomeScreen() {
 
   // Check if there's a connection error
   const hasConnectionError = websites.length === 0 && !isLoading && !refreshing;
+  
+  // Test backend connection on mount
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        console.log('Testing backend connection...');
+        const response = await fetch('https://workspace-n6g0f7vla-michaels-projects-c8a13e6f.vercel.app/api');
+        const data = await response.json();
+        console.log('Backend connection test result:', data);
+      } catch (error) {
+        console.error('Backend connection test failed:', error);
+      }
+    };
+    testConnection();
+  }, []);
 
   const filteredWebsites = useMemo(() => {
     if (!searchQuery.trim()) return websites;
