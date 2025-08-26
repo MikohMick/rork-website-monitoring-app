@@ -2,32 +2,39 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
+import { Platform } from "react-native";
 
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  // Check for Rork backend URL first (preferred)
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     console.log('Using Rork backend URL:', process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
-  // Fallback to development server for local development
-  if (__DEV__) {
-    // For Expo development server
-    if (process.env.EXPO_PUBLIC_DEV_API_URL) {
-      console.log('Using dev API URL:', process.env.EXPO_PUBLIC_DEV_API_URL);
-      return process.env.EXPO_PUBLIC_DEV_API_URL;
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        console.log('Using same-origin for web:', window.location.origin);
+        return window.location.origin;
+      }
     }
-    // Default local development URL
-    console.log('Using default localhost URL');
-    return "http://localhost:8081";
+  } catch (e) {
+    console.log('Platform/window detection failed', e);
   }
 
-  // Production fallback - this should be set in your build environment
-  throw new Error(
-    "No base URL found. Please set EXPO_PUBLIC_RORK_API_BASE_URL environment variable."
-  );
+  if (process.env.EXPO_PUBLIC_DEV_API_URL) {
+    console.log('Using dev API URL:', process.env.EXPO_PUBLIC_DEV_API_URL);
+    return process.env.EXPO_PUBLIC_DEV_API_URL;
+  }
+
+  if (__DEV__) {
+    console.log('Using default localhost URL http://localhost:3000');
+    return "http://localhost:3000";
+  }
+
+  console.warn('No base URL configured, defaulting to relative');
+  return "";
 };
 
 const baseUrl = getBaseUrl();
@@ -47,7 +54,7 @@ export const trpcClient = trpc.createClient({
           if (!response.ok) {
             console.error('tRPC fetch error:', response.status, response.statusText);
           }
-          return response;
+          return response as Response;
         } catch (error) {
           console.error('tRPC fetch network error:', error);
           throw error;

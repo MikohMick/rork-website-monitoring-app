@@ -5,21 +5,17 @@ import { logger } from "hono/logger";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 
-// app will be mounted at /api
 const app = new Hono();
 
-// Add logging middleware
 app.use("*", logger());
 
-// Enable CORS for all routes with proper configuration
 app.use("*", cors({
-  origin: ['http://localhost:8081', 'https://rork.com', 'https://*.rork.com'],
+  origin: ['*'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  credentials: false,
 }));
 
-// Mount tRPC router at /trpc
 app.use(
   "/trpc/*",
   trpcServer({
@@ -29,7 +25,6 @@ app.use(
   })
 );
 
-// Simple health check endpoint
 app.get("/", (c) => {
   return c.json({ 
     status: "ok", 
@@ -39,7 +34,6 @@ app.get("/", (c) => {
   });
 });
 
-// Error handling middleware
 app.onError((err, c) => {
   console.error('API Error:', err);
   return c.json({
