@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, RefreshCw, Bell } from 'lucide-react-native';
+import { Search, RefreshCw, Bell, WifiOff, Wifi } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
 import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorBackend';
@@ -49,6 +49,9 @@ export default function HomeScreen() {
   }
 
   const { websites, isLoading, checkAllWebsites, addMultipleWebsites, refreshing } = websiteMonitor;
+
+  // Check if there's a connection error
+  const hasConnectionError = websites.length === 0 && !isLoading && !refreshing;
 
   const filteredWebsites = useMemo(() => {
     if (!searchQuery.trim()) return websites;
@@ -142,6 +145,16 @@ export default function HomeScreen() {
           ),
         }} 
       />
+      {/* Connection Status Indicator */}
+      {hasConnectionError && (
+        <View style={[styles.connectionStatus, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
+          <WifiOff color={colors.error} size={16} />
+          <Text style={[styles.connectionText, { color: colors.error }]}>
+            Backend connection failed. Check if server is running.
+          </Text>
+        </View>
+      )}
+      
       {websites.length > 0 && (
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
@@ -323,5 +336,22 @@ const styles = StyleSheet.create({
   notificationButton: {
     padding: 8,
     borderRadius: 8,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  connectionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
   },
 });

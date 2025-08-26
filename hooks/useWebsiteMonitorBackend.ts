@@ -24,11 +24,23 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
     refetchInterval: 60000, // Refetch every 60 seconds
     refetchOnWindowFocus: false, // Disable to prevent excessive refetching
     refetchOnMount: true,
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for network errors
+      if (failureCount < 3 && error.message.includes('Failed to fetch')) {
+        console.log(`Retrying connection attempt ${failureCount + 1}/3`);
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Debug logging (only when there are errors)
   if (websitesQuery.isError) {
     console.error('WebsiteMonitor Hook - Query Error:', websitesQuery.error);
+    if (websitesQuery.error.message.includes('Failed to fetch')) {
+      console.error('Network connection issue - check if backend is running and accessible');
+    }
   }
 
   // Mutations
