@@ -188,10 +188,16 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       )}
-      
 
-      
-      {websites.length > 0 && (
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <View style={[styles.loadingCard, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="loading-card-1" />
+          <View style={[styles.loadingCard, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="loading-card-2" />
+          <View style={[styles.loadingCard, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="loading-card-3" />
+        </View>
+      )}
+
+      {!isLoading && websites.length > 0 && (
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -239,8 +245,9 @@ export default function HomeScreen() {
 
 
 
-      {websites.length > 0 && (
+      {!isLoading && websites.length > 0 && (
         <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+
           <Search color={colors.textSecondary} size={20} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -368,6 +375,16 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+  },
+  loadingCard: {
+    height: 110,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   notificationButton: {
     padding: 8,

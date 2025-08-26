@@ -23,7 +23,10 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
           createdAt: new Date(w.createdAt)
         }));
         setWebsites(hydrated);
-        console.log(`Loaded ${hydrated.length} websites from local storage`);
+        const online = hydrated.filter((w: Website) => w.status === 'online').length;
+        const offline = hydrated.filter((w: Website) => w.status === 'offline').length;
+        const checking = hydrated.filter((w: Website) => w.status === 'checking').length;
+        console.log(`Loaded ${hydrated.length} websites from local storage (online=${online}, offline=${offline}, checking=${checking})`);
       }
     } catch (error) {
       console.error('Error loading from storage:', error);
@@ -43,7 +46,10 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
       setIsLoading(true);
       console.log('Fetching websites via Supabase...');
       const data = await websiteService.getAll();
-      console.log('Received websites data:', data);
+      const online = data.filter((w) => w.status === 'online').length;
+      const offline = data.filter((w) => w.status === 'offline').length;
+      const checking = data.filter((w) => w.status === 'checking').length;
+      console.log(`Received ${data.length} websites (online=${online}, offline=${offline}, checking=${checking})`);
       setWebsites(data);
       await saveToStorage(data);
       setIsOffline(false);
@@ -67,7 +73,7 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
 
   useEffect(() => {
     const initialize = async () => {
-      await loadFromStorage();
+      console.log('Initializing WebsiteMonitor: fetching from remote first');
       await fetchAll(true);
     };
     
@@ -94,7 +100,7 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
         unsubscribe();
       }
     };
-  }, [isOffline, fetchAll, loadFromStorage, saveToStorage]);
+  }, [isOffline, fetchAll, saveToStorage]);
 
   const websitesMemo: Website[] = useMemo(() => {
     const result = (websites ?? []).filter(site => site.id && site.id.trim() !== '');

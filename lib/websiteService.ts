@@ -290,7 +290,7 @@ export const websiteService = {
     const totalChecks = newUptime + newDowntime;
     const uptimePercentage = totalChecks > 0 ? (newUptime / totalChecks) * 100 : 0;
 
-    const { error: updateError } = await supabase
+    const { data: updatedRow, error: updateError } = await supabase
       .from('websites')
       .update({
         status,
@@ -300,14 +300,16 @@ export const websiteService = {
         uptime_percentage: uptimePercentage,
         last_error: lastError,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('*')
+      .single();
 
     if (updateError) {
       console.error('Error updating website status:', updateError);
       throw new Error(`Failed to update website status: ${updateError.message}`);
     }
 
-    console.log(`Website ${id} status updated: ${status}`);
+    console.log(`Website ${id} status updated in DB to: ${updatedRow?.status}, uptime=${updatedRow?.uptime}, downtime=${updatedRow?.downtime}`);
     return { status };
   },
 
