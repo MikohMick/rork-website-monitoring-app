@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,30 +10,51 @@ import {
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
-import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorBackend';
-import { trpc } from '@/lib/trpc';
+import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
 import StatusIndicator from '@/components/StatusIndicator';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function NotificationSettingsScreen() {
   const { colors } = useTheme();
-  const { websites } = useWebsiteMonitor();
+  const websiteMonitor = useWebsiteMonitor();
+  const [enabledWebsites, setEnabledWebsites] = useState<Set<string>>(new Set());
   
-  const preferencesQuery = trpc.notifications.getPreferences.useQuery();
-  const setPreferenceMutation = trpc.notifications.setPreference.useMutation({
-    onSuccess: () => {
-      preferencesQuery.refetch();
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Load preferences on mount
+  React.useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('notification_preferences');
+        if (stored) {
+          const preferences = JSON.parse(stored);
+          setEnabledWebsites(new Set(preferences));
+        }
+      } catch (error) {
+        console.log('Error loading notification preferences:', error);
       }
-    },
-  });
-  
-  const enabledWebsites = new Set(preferencesQuery.data?.preferences || []);
+    };
+    loadPreferences();
+  }, []);
   
   const handleToggleNotification = async (websiteId: string, enabled: boolean) => {
     try {
-      await setPreferenceMutation.mutateAsync({ websiteId, enabled });
+      const newEnabledWebsites = new Set(enabledWebsites);
+      if (enabled) {
+        newEnabledWebsites.add(websiteId);
+      } else {
+        newEnabledWebsites.delete(websiteId);
+      }
+      setEnabledWebsites(newEnabledWebsites);
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem(
+        'notification_preferences',
+        JSON.stringify(Array.from(newEnabledWebsites))
+      );
+      
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
     } catch {
       Alert.alert(
         'Error',
@@ -42,6 +63,22 @@ export default function NotificationSettingsScreen() {
       );
     }
   };
+  
+  // Handle case where hook returns undefined
+  if (!websiteMonitor) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: 'Notification Settings' }} />
+        <View style={styles.webNotSupported}>
+          <Text style={[styles.webNotSupportedText, { color: colors.text }]}>
+            Loading...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  
+  const { websites } = websiteMonitor;
   
   if (Platform.OS === 'web') {
     return (
@@ -113,7 +150,6 @@ export default function NotificationSettingsScreen() {
                   <Switch
                     value={isEnabled}
                     onValueChange={(enabled) => handleToggleNotification(website.id, enabled)}
-                    disabled={setPreferenceMutation.isPending}
                     trackColor={{
                       false: colors.border,
                       true: colors.primary + '40',
