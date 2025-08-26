@@ -15,19 +15,7 @@ const convertFromDatabase = (dbWebsite: DatabaseWebsite): Website => ({
   lastError: dbWebsite.last_error,
 });
 
-// Helper function to convert app format to database format
-const convertToDatabase = (website: Partial<Website>): Partial<DatabaseWebsite> => ({
-  id: website.id,
-  name: website.name,
-  url: website.url,
-  status: website.status,
-  uptime: website.uptime,
-  downtime: website.downtime,
-  last_checked: website.lastChecked?.toISOString(),
-  created_at: website.createdAt?.toISOString(),
-  uptime_percentage: website.uptimePercentage,
-  last_error: website.lastError,
-});
+
 
 export const websiteService = {
   // Get all websites
@@ -135,24 +123,56 @@ export const websiteService = {
       throw new Error('Website not found');
     }
 
-    // Check the website status
+    // Check the website status using a reliable CORS proxy
     let status: 'online' | 'offline' = 'offline';
     let lastError: string | undefined;
 
     try {
       console.log(`Checking URL: ${website.url}`);
-      const response = await fetch(website.url, {
-        method: 'HEAD',
+      
+      // Use allorigins.win which is reliable and free
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(website.url)}`;
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 15000);
       });
       
-      status = response.ok ? 'online' : 'offline';
-      if (!response.ok) {
-        lastError = `HTTP ${response.status}: ${response.statusText}`;
+      const fetchPromise = fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Proxy response received');
+        
+        // Check if the proxy successfully fetched the website
+        if (data.status && data.status.http_code) {
+          // Use the HTTP status code from the proxy
+          status = (data.status.http_code >= 200 && data.status.http_code < 400) ? 'online' : 'offline';
+          if (status === 'offline') {
+            lastError = `HTTP ${data.status.http_code}`;
+          }
+        } else if (data.contents) {
+          // If we got content, the site is likely online
+          status = 'online';
+        } else {
+          status = 'offline';
+          lastError = 'No content received';
+        }
+      } else {
+        status = 'offline';
+        lastError = `Proxy error: ${response.status} ${response.statusText}`;
       }
     } catch (error) {
       console.error('Error checking website:', error);
       status = 'offline';
-      lastError = error instanceof Error ? error.message : 'Unknown error';
+      lastError = error instanceof Error ? error.message : 'Network error';
     }
 
     // Update the website status
