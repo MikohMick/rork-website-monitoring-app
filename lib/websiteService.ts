@@ -123,56 +123,120 @@ export const websiteService = {
       throw new Error('Website not found');
     }
 
-    // Check the website status using a reliable CORS proxy
+    // Check the website status using multiple methods with fallbacks
     let status: 'online' | 'offline' = 'offline';
     let lastError: string | undefined;
 
-    try {
-      console.log(`Checking URL: ${website.url}`);
-      
-      // Use allorigins.win which is reliable and free
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(website.url)}`;
-      
-      // Create a timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 15000);
-      });
-      
-      const fetchPromise = fetch(proxyUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Proxy response received');
-        
-        // Check if the proxy successfully fetched the website
-        if (data.status && data.status.http_code) {
-          // Use the HTTP status code from the proxy
-          status = (data.status.http_code >= 200 && data.status.http_code < 400) ? 'online' : 'offline';
-          if (status === 'offline') {
-            lastError = `HTTP ${data.status.http_code}`;
+    console.log(`Checking URL: ${website.url}`);
+    
+    // List of CORS proxy services to try
+    const proxyServices = [
+      {
+        name: 'allorigins.win',
+        url: (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        parseResponse: (data: any): { success: boolean; error?: string } => {
+          if (data.status && data.status.http_code) {
+            return {
+              success: data.status.http_code >= 200 && data.status.http_code < 400,
+              error: data.status.http_code >= 400 ? `HTTP ${data.status.http_code}` : undefined
+            };
+          } else if (data.contents) {
+            return { success: true };
           }
-        } else if (data.contents) {
-          // If we got content, the site is likely online
-          status = 'online';
-        } else {
-          status = 'offline';
-          lastError = 'No content received';
+          return { success: false, error: 'No content received' };
         }
-      } else {
-        status = 'offline';
-        lastError = `Proxy error: ${response.status} ${response.statusText}`;
+      },
+      {
+        name: 'cors-anywhere (heroku)',
+        url: (targetUrl: string) => `https://cors-anywhere.herokuapp.com/${targetUrl}`,
+        parseResponse: (): { success: boolean; error?: string } => ({ success: true })
+      },
+      {
+        name: 'thingproxy',
+        url: (targetUrl: string) => `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+        parseResponse: (): { success: boolean; error?: string } => ({ success: true })
       }
-    } catch (error) {
-      console.error('Error checking website:', error);
-      status = 'offline';
-      lastError = error instanceof Error ? error.message : 'Network error';
+    ];
+
+    // Try each proxy service
+    for (const proxy of proxyServices) {
+      try {
+        console.log(`Trying ${proxy.name} proxy...`);
+        
+        const proxyUrl = proxy.url(website.url);
+        
+        // Create a timeout promise (shorter timeout for faster fallback)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 10000);
+        });
+        
+        const fetchPromise = fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Website Monitor App',
+          },
+        });
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (response.ok) {
+          let result;
+          
+          try {
+            const data = await response.json();
+            result = proxy.parseResponse(data);
+          } catch {
+            // If JSON parsing fails, assume success if we got a response
+            result = { success: true };
+          }
+          
+          if (result.success) {
+            status = 'online';
+            lastError = undefined;
+            console.log(`Website ${id} is online (via ${proxy.name})`);
+            break;
+          } else {
+            lastError = result.error || `Failed via ${proxy.name}`;
+            console.log(`Website ${id} failed via ${proxy.name}: ${lastError}`);
+          }
+        } else {
+          lastError = `${proxy.name} proxy error: ${response.status}`;
+          console.log(`Proxy ${proxy.name} failed: ${response.status} ${response.statusText}`);
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        lastError = `${proxy.name} error: ${errorMsg}`;
+        console.log(`Proxy ${proxy.name} error:`, errorMsg);
+        continue; // Try next proxy
+      }
+    }
+
+    // If all proxies failed, try a direct fetch (will only work for CORS-enabled sites)
+    if (status === 'offline') {
+      try {
+        console.log('Trying direct fetch as last resort...');
+        
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Direct fetch timeout')), 5000);
+        });
+        
+        const fetchPromise = fetch(website.url, {
+          method: 'HEAD', // Use HEAD to minimize data transfer
+          mode: 'no-cors', // This will succeed but we won't get response details
+        });
+        
+        await Promise.race([fetchPromise, timeoutPromise]);
+        
+        // If we reach here without error, the site is likely reachable
+        status = 'online';
+        lastError = undefined;
+        console.log(`Website ${id} is online (direct fetch)`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Direct fetch failed';
+        lastError = lastError || errorMsg;
+        console.log('Direct fetch failed:', errorMsg);
+      }
     }
 
     // Update the website status
