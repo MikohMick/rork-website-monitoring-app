@@ -49,12 +49,10 @@ export default function HomeScreen() {
     );
   }
 
-  const { websites, isLoading, checkAllWebsites, refreshing, isOffline, retryConnection } = websiteMonitor;
+  const { websites, isLoading, checkAllWebsites, refreshing, isOffline, retryConnection, hasFetchedOnce } = websiteMonitor;
 
-  // Check if there's a connection error
-  const hasConnectionError = websites.length === 0 && !isLoading && !refreshing;
-  
-
+  // Avoid showing misleading defaults: wait until the first remote fetch completes
+  const isInitialLoading = isLoading || !hasFetchedOnce;
 
   const filteredWebsites = useMemo(() => {
     if (!searchQuery.trim()) return websites;
@@ -175,23 +173,22 @@ export default function HomeScreen() {
       {isOffline && (
         <View style={[styles.connectionStatus, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
           <WifiOff color={colors.error} size={16} />
-          <Text style={[styles.connectionText, { color: colors.error }]}>
-            Offline Mode - Using cached data
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.error }]}
-            onPress={retryConnection}
-          >
-            <Text style={[styles.retryButtonText, { color: colors.background }]}>
-              Retry
-            </Text>
+          <Text style={[styles.connectionText, { color: colors.error }]}>Offline Mode - Using cached data</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.error }]} onPress={retryConnection}>
+            <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       )}
-      
 
-      
-      {websites.length > 0 && (
+      {/* Initial loading state */}
+      {isInitialLoading && (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Loading websites…</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Fetching latest status from database</Text>
+        </View>
+      )}
+
+      {!isInitialLoading && websites.length > 0 && (
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -239,7 +236,7 @@ export default function HomeScreen() {
 
 
 
-      {websites.length > 0 && (
+      {!isInitialLoading && websites.length > 0 && (
         <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Search color={colors.textSecondary} size={20} />
           <TextInput
@@ -253,11 +250,11 @@ export default function HomeScreen() {
       )}
 
       <FlatList
-        data={filteredWebsites}
+        data={isInitialLoading ? [] : filteredWebsites}
         renderItem={renderWebsite}
         keyExtractor={(item, index) => item.id || `fallback-${index}`}
-        contentContainerStyle={websites.length === 0 ? styles.emptyList : styles.list}
-        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={!isInitialLoading && websites.length === 0 ? styles.emptyList : styles.list}
+        ListEmptyComponent={!isInitialLoading ? renderEmpty : undefined}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -272,7 +269,7 @@ export default function HomeScreen() {
         windowSize={10}
         initialNumToRender={5}
         getItemLayout={(data, index) => ({
-          length: 120, // Approximate height of each item
+          length: 120,
           offset: 120 * index,
           index,
         })}

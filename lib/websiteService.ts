@@ -128,6 +128,7 @@ export const websiteService = {
     let lastError: string | undefined;
 
     console.log(`Checking URL: ${website.url}`);
+    const startedAt = Date.now();
     
     // List of CORS proxy services to try
     const proxyServices = [
@@ -307,8 +308,22 @@ export const websiteService = {
       throw new Error(`Failed to update website status: ${updateError.message}`);
     }
 
-    console.log(`Website ${id} status updated: ${status}`);
-    return { status };
+    // Read back to verify persistence
+    const { data: verified, error: verifyError } = await supabase
+      .from('websites')
+      .select('id,status,uptime,downtime,uptime_percentage,last_checked,last_error')
+      .eq('id', id)
+      .single();
+
+    if (verifyError) {
+      console.error('Verification read failed:', verifyError);
+    } else {
+      console.log('Persisted status row:', verified);
+    }
+
+    const durationMs = Date.now() - startedAt;
+    console.log(`Website ${id} status updated: ${status} in ${durationMs}ms`);
+    return { status: (verified?.status as 'online' | 'offline') ?? status };
   },
 
   // Check all websites
