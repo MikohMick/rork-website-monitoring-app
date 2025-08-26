@@ -189,14 +189,7 @@ export default function HomeScreen() {
         </View>
       )}
       
-      {!isOffline && websites.length > 0 && (
-        <View style={[styles.connectionStatus, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
-          <Wifi color={colors.success} size={16} />
-          <Text style={[styles.connectionText, { color: colors.success }]}>
-            Connected to Supabase
-          </Text>
-        </View>
-      )}
+
       
       {websites.length > 0 && (
         <View style={styles.summaryContainer}>

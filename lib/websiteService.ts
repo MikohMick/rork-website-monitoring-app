@@ -136,11 +136,15 @@ export const websiteService = {
         url: (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
         parseResponse: (data: any): { success: boolean; error?: string } => {
           if (data.status && data.status.http_code) {
+            const httpCode = data.status.http_code;
+            // Consider 2xx and 3xx as success, 4xx and 5xx as failure
+            const isSuccess = httpCode >= 200 && httpCode < 400;
             return {
-              success: data.status.http_code >= 200 && data.status.http_code < 400,
-              error: data.status.http_code >= 400 ? `HTTP ${data.status.http_code}` : undefined
+              success: isSuccess,
+              error: !isSuccess ? `HTTP ${httpCode}` : undefined
             };
           } else if (data.contents) {
+            // If we got content but no status code, assume success
             return { success: true };
           }
           return { success: false, error: 'No content received' };
@@ -149,12 +153,26 @@ export const websiteService = {
       {
         name: 'cors-anywhere (heroku)',
         url: (targetUrl: string) => `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-        parseResponse: (): { success: boolean; error?: string } => ({ success: true })
+        parseResponse: (data: any, response: Response): { success: boolean; error?: string } => {
+          // Check the actual HTTP status from the proxy response
+          const isSuccess = response.status >= 200 && response.status < 400;
+          return {
+            success: isSuccess,
+            error: !isSuccess ? `HTTP ${response.status}` : undefined
+          };
+        }
       },
       {
         name: 'thingproxy',
         url: (targetUrl: string) => `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-        parseResponse: (): { success: boolean; error?: string } => ({ success: true })
+        parseResponse: (data: any, response: Response): { success: boolean; error?: string } => {
+          // Check the actual HTTP status from the proxy response
+          const isSuccess = response.status >= 200 && response.status < 400;
+          return {
+            success: isSuccess,
+            error: !isSuccess ? `HTTP ${response.status}` : undefined
+          };
+        }
       }
     ];
 
@@ -180,29 +198,29 @@ export const websiteService = {
         
         const response = await Promise.race([fetchPromise, timeoutPromise]);
         
-        if (response.ok) {
-          let result;
-          
-          try {
-            const data = await response.json();
-            result = proxy.parseResponse(data);
-          } catch {
-            // If JSON parsing fails, assume success if we got a response
-            result = { success: true };
-          }
-          
-          if (result.success) {
-            status = 'online';
-            lastError = undefined;
-            console.log(`Website ${id} is online (via ${proxy.name})`);
-            break;
-          } else {
-            lastError = result.error || `Failed via ${proxy.name}`;
-            console.log(`Website ${id} failed via ${proxy.name}: ${lastError}`);
-          }
+        // Always check the response, even if not response.ok
+        let result;
+        
+        try {
+          const data = await response.json();
+          result = proxy.parseResponse(data, response);
+        } catch {
+          // If JSON parsing fails, check the HTTP status directly
+          const isSuccess = response.status >= 200 && response.status < 400;
+          result = {
+            success: isSuccess,
+            error: !isSuccess ? `HTTP ${response.status}` : undefined
+          };
+        }
+        
+        if (result.success) {
+          status = 'online';
+          lastError = undefined;
+          console.log(`Website ${id} is online (via ${proxy.name})`);
+          break;
         } else {
-          lastError = `${proxy.name} proxy error: ${response.status}`;
-          console.log(`Proxy ${proxy.name} failed: ${response.status} ${response.statusText}`);
+          lastError = result.error || `Failed via ${proxy.name} - HTTP ${response.status}`;
+          console.log(`Website ${id} failed via ${proxy.name}: ${lastError}`);
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -223,19 +241,45 @@ export const websiteService = {
         
         const fetchPromise = fetch(website.url, {
           method: 'HEAD', // Use HEAD to minimize data transfer
-          mode: 'no-cors', // This will succeed but we won't get response details
+          mode: 'cors', // Try CORS first to get actual status
         });
         
-        await Promise.race([fetchPromise, timeoutPromise]);
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
         
-        // If we reach here without error, the site is likely reachable
-        status = 'online';
-        lastError = undefined;
-        console.log(`Website ${id} is online (direct fetch)`);
+        // Check the actual HTTP status code
+        const isSuccess = response.status >= 200 && response.status < 400;
+        if (isSuccess) {
+          status = 'online';
+          lastError = undefined;
+          console.log(`Website ${id} is online (direct fetch) - HTTP ${response.status}`);
+        } else {
+          lastError = `HTTP ${response.status}`;
+          console.log(`Website ${id} is offline (direct fetch) - HTTP ${response.status}`);
+        }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Direct fetch failed';
-        lastError = lastError || errorMsg;
-        console.log('Direct fetch failed:', errorMsg);
+        // If CORS fails, try no-cors as fallback (but this won't give us status codes)
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('No-cors fetch timeout')), 5000);
+          });
+          
+          const fetchPromise = fetch(website.url, {
+            method: 'HEAD',
+            mode: 'no-cors', // This will succeed but we won't get response details
+          });
+          
+          await Promise.race([fetchPromise, timeoutPromise]);
+          
+          // If we reach here without error, the site is likely reachable
+          // But we can't determine the actual status code with no-cors
+          status = 'online';
+          lastError = undefined;
+          console.log(`Website ${id} is online (no-cors direct fetch)`);
+        } catch {
+          const errorMsg = error instanceof Error ? error.message : 'Direct fetch failed';
+          lastError = lastError || errorMsg;
+          console.log('Direct fetch failed:', errorMsg);
+        }
       }
     }
 
