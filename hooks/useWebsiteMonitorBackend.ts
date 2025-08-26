@@ -1,8 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { trpc } from '@/lib/trpc';
 
 interface Website {
   id: string;
@@ -18,105 +17,88 @@ interface Website {
 
 export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() => {
   const [refreshing, setRefreshing] = useState(false);
+  const [websites, setWebsites] = useState<Website[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Get all websites with real-time updates
-  const websitesQuery = trpc.websites.getAll.useQuery(undefined, {
-    refetchInterval: 60000, // Refetch every 60 seconds
-    refetchOnWindowFocus: false, // Disable to prevent excessive refetching
-    refetchOnMount: true,
-    retry: (failureCount, error) => {
-      // Retry up to 3 times for network errors
-      if (failureCount < 3 && error.message.includes('Failed to fetch')) {
-        console.log(`Retrying connection attempt ${failureCount + 1}/3`);
-        return true;
-      }
-      return false;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
+  const API_BASE = (() => {
+    const env = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? '';
+    if (env) return env.replace(/\/$/, '');
+    return 'https://workspace-n6g0f7vla-michaels-projects-c8a13e6f.vercel.app';
+  })();
 
-  // Debug logging (only when there are errors)
-  if (websitesQuery.isError) {
-    console.error('WebsiteMonitor Hook - Query Error:', websitesQuery.error);
-    if (websitesQuery.error.message.includes('Failed to fetch')) {
-      console.error('Network connection issue - check if backend is running and accessible');
+  const get = async <T,>(path: string): Promise<T> => {
+    const url = `${API_BASE}${path}`;
+    console.log('REST GET:', url);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`GET ${path} ${res.status}`);
+    return res.json() as Promise<T>;
+  };
+  const post = async <T,>(path: string, body?: unknown): Promise<T> => {
+    const url = `${API_BASE}${path}`;
+    console.log('REST POST:', url, body);
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) throw new Error(`POST ${path} ${res.status}`);
+    return res.json() as Promise<T>;
+  };
+  const del = async <T,>(path: string, body?: unknown): Promise<T> => {
+    const url = `${API_BASE}${path}`;
+    console.log('REST DELETE:', url, body);
+    const res = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) throw new Error(`DELETE ${path} ${res.status}`);
+    return res.json() as Promise<T>;
+  };
+
+  const fetchAll = async () => {
+    try {
+      setIsLoading(true);
+      const data = await get<Website[]>(`/api/websites`);
+      const hydrated = data.map(w => ({ ...w, lastChecked: new Date(w.lastChecked), createdAt: new Date(w.createdAt) }));
+      setWebsites(hydrated);
+    } catch (e) {
+      console.error('Backend connection failed', e);
+      setWebsites([]);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Mutations
-  const addWebsiteMutation = trpc.websites.add.useMutation({
-    onSuccess: () => {
-      websitesQuery.refetch();
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    },
-  });
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const deleteWebsiteMutation = trpc.websites.delete.useMutation({
-    onSuccess: () => {
-      websitesQuery.refetch();
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    },
-  });
-
-  const checkWebsiteMutation = trpc.websites.check.useMutation({
-    onSuccess: () => {
-      websitesQuery.refetch();
-    },
-  });
-
-  const checkAllWebsitesMutation = trpc.websites.checkAll.useMutation({
-    onSuccess: () => {
-      websitesQuery.refetch();
-    },
-  });
-
-  const websites: Website[] = useMemo(() => {
-    if (!websitesQuery.data) return [];
-    
-    const result = websitesQuery.data
-      .filter(site => site.id && site.id.trim() !== '')
-      .map(site => ({
-        ...site,
-        lastChecked: new Date(site.lastChecked),
-        createdAt: new Date(site.createdAt),
-      }));
-    
-    // Check for duplicate IDs and log only if found
+  const websitesMemo: Website[] = useMemo(() => {
+    const result = (websites ?? []).filter(site => site.id && site.id.trim() !== '');
     const ids = result.map(w => w.id);
     const uniqueIds = new Set(ids);
     if (ids.length !== uniqueIds.size) {
-      console.error('Duplicate website IDs detected');
-      // Remove duplicates by keeping only the first occurrence
       const seen = new Set<string>();
       return result.filter(site => {
-        if (seen.has(site.id)) {
-          return false;
-        }
+        if (seen.has(site.id)) return false;
         seen.add(site.id);
         return true;
       });
     }
-    
     return result;
-  }, [websitesQuery.data]);
+  }, [websites]);
 
   const addWebsite = useCallback(
     async (name: string, url: string) => {
       console.log(`Adding website: ${name} (${url})`);
       try {
-        const result = await addWebsiteMutation.mutateAsync({ name, url });
-        console.log('Website added successfully:', result);
+        const result = await post<{ id: string }>(`/api/websites`, { name, url });
+        await fetchAll();
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         return result.id;
       } catch (error) {
         console.error('Error adding website:', error);
-        throw error;
+        throw error as Error;
       }
     },
-    [addWebsiteMutation]
+    []
   );
 
   const addMultipleWebsites = useCallback(
@@ -124,68 +106,71 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
       console.log(`Adding ${websiteData.length} websites...`);
       try {
         const results = await Promise.all(
-          websiteData.map(({ name, url }) => 
-            addWebsiteMutation.mutateAsync({ name, url })
-          )
+          websiteData.map(({ name, url }) => post<{ id: string }>(`/api/websites`, { name, url }))
         );
-        console.log('All websites added successfully');
+        await fetchAll();
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
         return results.map(r => r.id);
       } catch (error) {
         console.error('Error adding multiple websites:', error);
-        throw error;
+        throw error as Error;
       }
     },
-    [addWebsiteMutation]
+    []
   );
 
   const removeWebsite = useCallback(
     async (id: string) => {
       console.log(`Removing website: ${id}`);
       try {
-        await deleteWebsiteMutation.mutateAsync({ id });
-        console.log('Website removed successfully');
+        await del(`/api/websites/${encodeURIComponent(id)}`);
+        await fetchAll();
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
       } catch (error) {
         console.error('Error removing website:', error);
-        throw error;
+        throw error as Error;
       }
     },
-    [deleteWebsiteMutation]
+    []
   );
 
   const checkWebsiteStatus = useCallback(
     async (id: string) => {
       console.log(`Checking website status: ${id}`);
       try {
-        const result = await checkWebsiteMutation.mutateAsync({ id });
-        console.log('Website checked successfully:', result);
-        return result;
+        const result = await post(`/api/websites/${encodeURIComponent(id)}/check`);
+        await fetchAll();
+        return result as unknown;
       } catch (error) {
         console.error('Error checking website:', error);
-        throw error;
+        throw error as Error;
       }
     },
-    [checkWebsiteMutation]
+    []
   );
 
   const checkAllWebsites = useCallback(async () => {
     console.log('Checking all websites...');
     setRefreshing(true);
-    
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-
     try {
-      const result = await checkAllWebsitesMutation.mutateAsync();
+      const result = await post<{ checked: number; failed: number }>(`/api/websites/check-all`);
+      await fetchAll();
       console.log(`Checked ${result.checked} websites successfully, ${result.failed} failed`);
       return result;
     } catch (error) {
       console.error('Error checking all websites:', error);
-      throw error;
+      throw error as Error;
     } finally {
       setRefreshing(false);
     }
-  }, [checkAllWebsitesMutation]);
+  }, []);
 
   const getWebsiteStats = useCallback((website: Website) => {
     return {
@@ -200,19 +185,20 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
     console.log('Clearing all websites...');
     try {
       await Promise.all(
-        websites.map(website => deleteWebsiteMutation.mutateAsync({ id: website.id }))
+        websites.map(website => del(`/api/websites/${encodeURIComponent(website.id)}`))
       );
+      await fetchAll();
       console.log('All websites cleared successfully');
     } catch (error) {
       console.error('Error clearing websites:', error);
     }
-  }, [websites, deleteWebsiteMutation]);
+  }, [websites]);
 
   return useMemo(() => ({
-    websites,
-    isLoading: websitesQuery.isLoading,
+    websites: websitesMemo,
+    isLoading,
     refreshing,
-    checkingIds: new Set<string>(), // Not needed with backend
+    checkingIds: new Set<string>(),
     addWebsite,
     addMultipleWebsites,
     removeWebsite,
@@ -221,8 +207,8 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
     getWebsiteStats,
     clearAllWebsites,
   }), [
-    websites,
-    websitesQuery.isLoading,
+    websitesMemo,
+    isLoading,
     refreshing,
     addWebsite,
     addMultipleWebsites,

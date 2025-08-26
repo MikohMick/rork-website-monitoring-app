@@ -7,7 +7,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { WebsiteMonitorProvider } from "@/hooks/useWebsiteMonitorBackend";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { trpc, trpcClient } from "@/lib/trpc";
 import { useNotifications } from "@/hooks/useNotifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -35,17 +34,15 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <trpc.Provider client={trpcClient} queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
-            <ThemeProvider>
-              <WebsiteMonitorProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </WebsiteMonitorProvider>
-            </ThemeProvider>
-          </QueryClientProvider>
-        </trpc.Provider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <WebsiteMonitorProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </WebsiteMonitorProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

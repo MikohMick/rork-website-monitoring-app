@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { trpc } from '@/lib/trpc';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -17,9 +16,7 @@ Notifications.setNotificationHandler({
 export function useNotifications() {
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
-  
-  const registerTokenMutation = trpc.notifications.registerToken.useMutation();
-  
+
   useEffect(() => {
     const setup = async () => {
       if (Platform.OS === 'web') {
@@ -34,7 +31,7 @@ export function useNotifications() {
       
       const token = await registerForPushNotificationsAsync();
       if (token) {
-        registerTokenMutation.mutate({ token });
+        console.log('Push token ready (REST backend must store it server-side):', token);
       }
 
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -60,10 +57,10 @@ export function useNotifications() {
         Notifications.removeNotificationSubscription(responseListener.current);
       }
     };
-  }, [registerTokenMutation]);
+  }, []);
 
   return {
-    isRegistering: registerTokenMutation.isPending,
+    isRegistering: false,
   };
 }
 
