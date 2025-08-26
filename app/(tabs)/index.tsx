@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, RefreshCw, Bell, WifiOff, Wifi, AlertCircle } from 'lucide-react-native';
+import { Search, RefreshCw, WifiOff, Wifi, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
 import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
@@ -161,14 +161,6 @@ export default function HomeScreen() {
       <Stack.Screen 
         options={{
           title: 'Website Monitor',
-          headerRight: () => (
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => router.push('/notifications')}
-            >
-              <Bell color={colors.primary} size={24} />
-            </TouchableOpacity>
-          ),
         }} 
       />
       {/* Connection Status Indicator */}
@@ -386,10 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  notificationButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
+
   connectionStatus: {
     flexDirection: 'row',
     alignItems: 'center',
