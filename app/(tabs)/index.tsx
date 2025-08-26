@@ -9,9 +9,10 @@ import {
   RefreshControl,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, RefreshCw, Bell, WifiOff, Wifi } from 'lucide-react-native';
+import { Search, RefreshCw, Bell, WifiOff, Wifi, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
 import { useWebsiteMonitor } from '@/hooks/useWebsiteMonitorSupabase';
@@ -102,6 +103,27 @@ export default function HomeScreen() {
       console.log('Test websites added successfully');
     } catch (error) {
       console.log('Error adding test websites:', error);
+      
+      // Show helpful error message if database setup is needed
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('relation "websites" does not exist') || 
+          errorMessage.includes('table "websites" does not exist')) {
+        Alert.alert(
+          'Database Setup Required',
+          'The Supabase database table needs to be created first.\n\nPlease go to your Supabase dashboard and run the SQL command from the BUILD_GUIDE.md file.',
+          [
+            { text: 'OK' },
+            { 
+              text: 'View Guide', 
+              onPress: () => {
+                console.log('Please check BUILD_GUIDE.md for database setup instructions');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', `Failed to add test websites: ${errorMessage}`);
+      }
     }
   };
 

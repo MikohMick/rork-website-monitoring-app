@@ -68,6 +68,8 @@ export const websiteService = {
       uptime_percentage: 0,
     };
 
+    console.log('Inserting website data:', newWebsite);
+
     const { data, error } = await supabase
       .from('websites')
       .insert([newWebsite])
@@ -75,8 +77,21 @@ export const websiteService = {
       .single();
 
     if (error) {
-      console.error('Error adding website:', error);
-      throw new Error(`Failed to add website: ${error.message}`);
+      console.error('Supabase insert error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      // Provide more specific error messages
+      if (error.message.includes('relation "websites" does not exist')) {
+        throw new Error('Database table "websites" does not exist. Please create the table in Supabase first.');
+      } else if (error.message.includes('column') && error.message.includes('does not exist')) {
+        throw new Error(`Database schema mismatch: ${error.message}. Please check your table structure.`);
+      } else {
+        throw new Error(`Failed to add website: ${error.message}`);
+      }
     }
 
     console.log('Website added successfully:', data);

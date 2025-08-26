@@ -127,7 +127,27 @@ export default function AddScreen() {
       );
     } catch (error) {
       console.log('Save error:', error);
-      Alert.alert('Error', 'Failed to add websites. Please try again.');
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('relation "websites" does not exist') || 
+          errorMessage.includes('table "websites" does not exist')) {
+        Alert.alert(
+          'Database Setup Required',
+          'The Supabase database table needs to be created first.\n\nPlease go to your Supabase dashboard and run the SQL command from the BUILD_GUIDE.md file.',
+          [
+            { text: 'OK' },
+            { 
+              text: 'View Guide', 
+              onPress: () => {
+                console.log('Please check BUILD_GUIDE.md for database setup instructions');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', `Failed to add websites: ${errorMessage}`);
+      }
     } finally {
       setIsLoading(false);
     }

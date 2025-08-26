@@ -150,7 +150,9 @@ export const [WebsiteMonitorProvider, useWebsiteMonitor] = createContextHook(() 
         }
       } catch (error) {
         console.error('Error adding website:', error);
-        throw error as Error;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Detailed error:', errorMessage);
+        throw new Error(errorMessage);
       }
     },
     [isOffline, websites, saveToStorage, fetchAll]

@@ -1,6 +1,57 @@
-# Website Monitoring App - EAS Build Setup Guide
+# Website Monitor - Supabase Setup Guide
 
-## Prerequisites
+## Database Setup
+
+This app uses Supabase as the backend database. Follow these steps to set up the database:
+
+### 1. Create the websites table
+
+In your Supabase dashboard, go to the SQL Editor and run this SQL command:
+
+```sql
+CREATE TABLE websites (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'checking',
+  uptime INTEGER NOT NULL DEFAULT 0,
+  downtime INTEGER NOT NULL DEFAULT 0,
+  last_checked TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  uptime_percentage REAL DEFAULT 0,
+  last_error TEXT
+);
+```
+
+### 2. Enable Row Level Security (Optional)
+
+For better security, you can enable RLS:
+
+```sql
+ALTER TABLE websites ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations for now (you can make this more restrictive)
+CREATE POLICY "Allow all operations" ON websites
+  FOR ALL USING (true);
+```
+
+### 3. Enable Realtime (Optional)
+
+To enable real-time updates:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE websites;
+```
+
+## Environment Variables
+
+The app is already configured with the Supabase credentials:
+- URL: `https://xoohhcndzvwthzfdqgjz.supabase.co`
+- Anon Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+## EAS Build Setup (Optional)
+
+### Prerequisites
 
 1. Install EAS CLI globally:
 ```bash
@@ -10,23 +61,6 @@ npm install -g @expo/eas-cli
 2. Login to your Expo account:
 ```bash
 eas login
-```
-
-## Environment Configuration
-
-1. Create a `.env` file in your project root:
-```bash
-# Backend API Base URL (required)
-EXPO_PUBLIC_RORK_API_BASE_URL=https://your-backend-url.com
-
-# Optional: Development API URL
-EXPO_PUBLIC_DEV_API_URL=http://localhost:8081
-
-# App Configuration
-EXPO_PUBLIC_APP_NAME="Website Monitoring App"
-EXPO_PUBLIC_APP_VERSION="1.0.0"
-EXPO_PUBLIC_ENABLE_NOTIFICATIONS=true
-EXPO_PUBLIC_DEBUG_MODE=false
 ```
 
 ## Build Configuration
@@ -72,23 +106,41 @@ The project supports three build profiles:
 
 ## Troubleshooting
 
-### Common Issues:
+### Supabase Database Issues:
 
-1. **"Failed to resolve plugin for module 'expo-router'"**
+1. **"relation 'websites' does not exist"**
+   - This means the table hasn't been created yet
+   - Run the SQL command above in your Supabase dashboard
+   - Go to SQL Editor and paste the CREATE TABLE command
+
+2. **"Could not find the 'downtime' column"**
+   - This means the table exists but has different columns
+   - Drop the existing table: `DROP TABLE websites;`
+   - Recreate it with the SQL above, or add missing columns
+
+3. **"Failed to add website" or "[object Object]" errors**
+   - Check the browser console for detailed error messages
+   - Verify all required columns exist in your table
+   - Make sure the table structure matches exactly
+
+4. **Connection errors**
+   - Check that your Supabase project is active
+   - Verify the URL and API key are correct
+   - Test your internet connection
+   - Check Supabase service status
+
+### Common Build Issues:
+
+5. **"Failed to resolve plugin for module 'expo-router'"**
    - Ensure `expo-router` is properly installed
    - Check that `babel.config.js` includes `expo-router/babel`
 
-2. **Push Notifications Not Working**
+6. **Push Notifications Not Working**
    - Push notifications don't work in Expo Go (SDK 53+)
    - Use development builds or production builds
    - The app gracefully handles this limitation
 
-3. **Backend Connection Issues**
-   - Verify `EXPO_PUBLIC_RORK_API_BASE_URL` is set correctly
-   - Check that your backend is accessible from the internet
-   - Ensure CORS is properly configured
-
-4. **Build Failures**
+7. **Build Failures**
    - Check that all dependencies are compatible with Expo SDK 53
    - Verify app.json configuration is valid
    - Ensure no restricted native modules are used
@@ -105,12 +157,17 @@ The project supports three build profiles:
 
 ## Deployment Steps
 
-1. Set up your backend (Rork or custom)
-2. Configure environment variables
-3. Run `eas build:configure` (if not already done)
-4. Build preview APK: `eas build --platform android --profile preview`
-5. Download and test the APK
-6. For production: `eas build --platform android --profile production`
+### For Supabase Setup:
+1. Create a Supabase project at https://supabase.com
+2. Run the SQL commands above to create the `websites` table
+3. The app is already configured with credentials - just test it!
+4. (Optional) Enable RLS and realtime features
+
+### For Building APK:
+1. Run `eas build:configure` (if not already done)
+2. Build preview APK: `eas build --platform android --profile preview`
+3. Download and test the APK
+4. For production: `eas build --platform android --profile production`
 
 ## Support
 
